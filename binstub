@@ -12,29 +12,35 @@ _STUB_RESULT="${PROGRAM}_STUB_RESULT"
 _STUB_END="${PROGRAM}_STUB_END"
 _STUB_DEBUG="${PROGRAM}_STUB_DEBUG"
 
-if [ -n "${!_STUB_DEBUG}" ]; then
-  echo "$program" "$@" >&${!_STUB_DEBUG}
-fi
-
 [ -e "${!_STUB_PLAN}" ] || exit 1
 [ -n "${!_STUB_RUN}" ] || eval "${_STUB_RUN}"="${BATS_MOCK_TMPDIR}/${program}-stub-run"
-
 
 # Initialize or load the stub run information.
 eval "${_STUB_INDEX}"=1
 eval "${_STUB_RESULT}"=0
 [ ! -e "${!_STUB_RUN}" ] || source "${!_STUB_RUN}"
 
+if [ -z "${!_STUB_END}" ] && [ -n "${!_STUB_DEBUG}" ]; then
+  echo "bats-mock: $program $@" >&${!_STUB_DEBUG}
+fi
 
 # Loop over each line in the plan.
 index=0
 while IFS= read -r line; do
   index=$(($index + 1))
 
+  # if [ -n "${!_STUB_DEBUG}" ]; then
+  #   echo "bats-mock: [idx $index, want ${!_STUB_INDEX}] $line" >&${!_STUB_DEBUG}
+  # fi
+
   if [ -z "${!_STUB_END}" ] && [ $index -eq "${!_STUB_INDEX}" ]; then
     # We found the plan line we're interested in.
     # Start off by assuming success.
     result=0
+
+    if [ -n "${!_STUB_DEBUG}" ]; then
+      echo "bats-mock: matched command $line" >&${!_STUB_DEBUG}
+    fi
 
     # Split the line into an array of arguments to
     # match and a command to run to produce output.
@@ -60,18 +66,28 @@ while IFS= read -r line; do
 
       case "$argument" in
         $pattern ) ;;
-        * ) result=1 ;;
+        * )
+          if [ -n "${!_STUB_DEBUG}" ]; then
+            echo "bats-mock: match failed at idx $i, $argument != $pattern" >&${!_STUB_DEBUG}
+          fi
+          result=1 ;;
       esac
     done
 
     # If the arguments matched, evaluate the command
     # in a subshell. Otherwise, log the failure.
     if [ $result -eq 0 ] ; then
+      if [ -n "${!_STUB_DEBUG}" ]; then
+        echo "bats-mock: running $command" >&${!_STUB_DEBUG}
+      fi
       set +e
       ( eval "$command" )
       status="$?"
       set -e
     else
+      if [ -n "${!_STUB_DEBUG}" ]; then
+        echo "bats-mock: failed to match ${#patterns[@]} arguments" >&${!_STUB_DEBUG}
+      fi
       eval "${_STUB_RESULT}"=1
     fi
   fi
@@ -79,6 +95,15 @@ done < "${!_STUB_PLAN}"
 
 
 if [ -n "${!_STUB_END}" ]; then
+  if [ -n "${!_STUB_DEBUG}" ]; then
+    echo "bats-mock: unstubbing $program" >&${!_STUB_DEBUG}
+  fi
+
+  if [ ! -f "${!_STUB_RUN}" ] && [ -n "${!_STUB_DEBUG}" ] ; then
+    echo "The stub for ${program} wasn't run"
+    exit 1
+  fi
+
   # Clean up the run file.
   rm -f "${!_STUB_RUN}"
 
@@ -95,6 +120,9 @@ else
   # If the requested index is larger than the number
   # of lines in the plan file, we failed.
   if [ "${!_STUB_INDEX}" -gt $index ]; then
+    if [ -n "${!_STUB_DEBUG}" ]; then
+      echo "bats-mock: no plan row found" >&${!_STUB_DEBUG}
+    fi
     eval "${_STUB_RESULT}"=1
   fi
 
@@ -103,6 +131,9 @@ else
     echo "${_STUB_RESULT}=${!_STUB_RESULT}"
   } > "${!_STUB_RUN}"
 
-  exit "$status"
+  if [ -n "${!_STUB_DEBUG}" ]; then
+    echo "bats-mock: result ${!_STUB_RESULT}" >&${!_STUB_DEBUG}
+  fi
 
+  exit "$status"
 fi
