@@ -97,6 +97,14 @@ Here, we used the `assert_success` and `assert_output` functions from [bats-asse
 Once the test case is done, you should call `unstub <program>` in order to clean up the temporary files, and make a final check that all the plans have been met for the stub.
 
 
+## Troubleshooting
+
+It can be difficult to figure out why your mock has failed. You can enable debugging by setting an environment variable (in this case for `date`):
+
+```
+export DATE_STUB_DEBUG=/dev/tty
+```
+
 ## How it works
 
 (You may want to know this, if you get weird results there may be stray files lingering about messing with your state.)
