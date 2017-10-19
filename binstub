@@ -52,26 +52,28 @@ while IFS= read -r line; do
       command="${command#* : }"
     fi
 
-    # Naively split patterns by whitespace for now.
-    # In the future, use a sed script to split while
-    # respecting quoting.
-    declare -a 'patterns=('"$patterns"')'
     arguments=("$@")
+    parsed_patterns=()
+
+    # xargs respects quoted substrings
+    while IFS= read -rd '' token; do
+      parsed_patterns+=("$token")
+    done < <(xargs printf '%s\0' <<< "${patterns}")
+
+    # debug "patterns [${#parsed_patterns[@]}] = $(printf "'%q' " "${parsed_patterns[@]}")"
+    # debug "arguments [${#arguments[@]}] = $(printf "'%q' " "${arguments[@]}")"
 
     # Match the expected argument patterns to actual
     # arguments.
-    for (( i=0; i<${#patterns[@]}; i++ )); do
-      pattern="${patterns[$i]}"
+    for (( i=0; i<${#parsed_patterns[@]}; i++ )); do
+      pattern="${parsed_patterns[$i]}"
       argument="${arguments[$i]}"
 
-      case "$argument" in
-        $pattern ) ;;
-        * )
-          debug "match failed at idx $i, $argument != $pattern"
-          result=1
-          break
-          ;;
-      esac
+      if [[ "$pattern" != "$argument" ]] ; then
+        debug "$(printf "match failed at idx %d, expected '%q', got '%q'" $i "$pattern" "$argument")"
+        result=1
+        break
+      fi
     done
 
     # If the arguments matched, evaluate the command
