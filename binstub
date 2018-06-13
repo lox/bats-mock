@@ -1,6 +1,11 @@
 #!/usr/bin/env bash
 set -e
 
+# If stdin comes from a pipe, save its content for later
+if ! [ -t 0 ]; then
+	input="$(cat)"
+fi
+
 status=0
 program="${0##*/}"
 PROGRAM="$(echo "$program" | tr a-z- A-Z_)"
@@ -80,8 +85,9 @@ while IFS= read -r line; do
     # in a subshell. Otherwise, log the failure.
     if [ $result -eq 0 ] ; then
       debug "running $command"
+	  debug "command input is $input"
       set +e
-      ( eval "$command" )
+      ( eval "$command"  <<< "$input" )
       status="$?"
       debug "command result was $status"
       set -e
