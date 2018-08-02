@@ -1,6 +1,8 @@
 # bats-mock
+
 Mocking/stubbing library for BATS (Bash Automated Testing System)
 
+A maintained fork of https://github.com/jasonkarns/bats-mock, which is dormant.
 
 ## Installation
 
@@ -18,28 +20,12 @@ then in `test/test_helper.bash`:
 load helpers/mocks/stub
 ```
 
-(Optionally configure sparse-checkout if you're concerned with all the non-essential files being in your repo)
-
-Also available as an [npm module](https://www.npmjs.com/package/bats-mock) if you're into that sort of thing.
-
-``` sh
-npm install --save-dev bats-mock
-```
-
-then in `test/test_helper.bash`:
-
-``` bash
-load ../node_modules/bats-mock/stub
-```
-
 ## Usage
 
 After loading `bats-mock/stub` you have two new functions defined:
 
 - `stub`: for creating new stubs, along with a plan with expected args and the results to return when called.
-
 - `unstub`: for cleaning up, and also verifying that the plan was fullfilled.
-
 
 ### Stubbing
 
@@ -91,7 +77,6 @@ The plan is verified, one by one, as the calls come in, but the final check that
 
 Here, we used the `assert_success` and `assert_output` functions from [bats-assert][], but any check you use in your `bats` tests are fine to use.
 
-
 ### Unstubbing
 
 Once the test case is done, you should call `unstub <program>` in order to clean up the temporary files, and make a final check that all the plans have been met for the stub.
@@ -105,13 +90,12 @@ If you want to verify that your stub was passed the correct data in STDIN, you c
 
 	stub curl \
 		"${_CURL_ARGS} : cat > ${_TMP_DIR}/actual-input ; cat ${_RESOURCES_DIR}/mock-output"
-	
+
 	run send_message
 	assert_success
 	diff "${_TMP_DIR}/actual-input" "${_RESOURCES_DIR}/expected-input"
 }
 ```
-
 
 ## Troubleshooting
 
@@ -129,15 +113,15 @@ Under the covers, `bats-mock` uses three scripts to manage the stubbed programs/
 
 First, it is the command (or program) itself, which when the stub is created is placed in (or rather, the `binstub` script is sym-linked to) `${BATS_MOCK_BINDIR}/${program}` (which is added to your `PATH` when loading the stub library). Secondly, it creates a stub plan, based on the arguments passed when creating the stub, and finally, during execution, the command invocations are tracked in a stub run file which is checked once the command is `unstub`'ed. The `${program}-stub-[plan|run]` files are both in `${BATS_MOCK_TMPDIR}`.
 
-
 ### Caveat
 
 If you stub functions, make sure to unset them, or the stub script wan't be called, as the function will shadow the binstub script on the `PATH`.
 
-
 ## Credits
 
-Extracted from the [ruby-build][] test suite. Many thanks to its author and contributors: [Sam Stephenson][sstephenson] and [Mislav Marohnić][mislav].
+Forked from https://github.com/jasonkarns/bats-mock originally with thanks to [@jasonkarns](https://github.com/jasonkarns).
+
+Originally extracted from the [ruby-build][] test suite. Many thanks to its author and contributors: [Sam Stephenson][sstephenson] and [Mislav Marohnić][mislav].
 
 [ruby-build]: https://github.com/sstephenson/ruby-build
 [sstephenson]: https://github.com/sstephenson
