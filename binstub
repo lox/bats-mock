@@ -85,7 +85,7 @@ while IFS= read -r line; do
     # in a subshell. Otherwise, log the failure.
     if [ $result -eq 0 ] ; then
       debug "running $command"
-	  debug "command input is $input"
+      debug "command input is $input"
       set +e
       ( eval "$command"  <<< "$input" )
       status="$?"
