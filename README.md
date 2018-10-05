@@ -4,6 +4,8 @@ Mocking/stubbing library for BATS (Bash Automated Testing System)
 
 A maintained fork of https://github.com/jasonkarns/bats-mock, which is dormant.
 
+There are great things happening in the `bats` ecosystem! Anyone actively using it should be installing from [bats-core]: https://github.com/bats-core.
+
 ## Installation
 
 Recommended installation is via git submodule. Assuming your project's bats
@@ -37,41 +39,38 @@ Each plan line represents an expected invocation, with a list of expected argume
 
 The expected args (and the colon) is optional.
 
-So, in order to stub `date`, we could use something like this in a test case (where `get_timestamp` is the function under test, relying on data from the `date` command):
+So, in order to stub `date`, we could use something like this in a test case (where `format_date` is the function under test, relying on data from the `date` command):
 
-    @test "get_timestamp" {
-      stub date \
-          "${_DATE_ARGS} : echo 1460967598.184561556" \
-          "${_DATE_ARGS} : echo 1460967598.084561556" \
-          "${_DATE_ARGS} : echo 1460967598.004561556" \
-          "${_DATE_ARGS} : echo 1460967598.000561556" \
-          "${_DATE_ARGS} : echo 1460967598.000061556"
+```bash
+load helper
 
-      run get_timestamp
-      assert_success
-      assert_output 1460967598184
+# this is the "code under test"
+# it would normally be in another file
+format_date() {
+  date -r 222
+}
 
-      run get_timestamp
-      assert_success
-      assert_output 1460967598084
+setup() {
+  _DATE_ARGS='-r 222'
+  stub date \
+      "${_DATE_ARGS} : echo 'I am stubbed!'" \
+      "${_DATE_ARGS} : echo 'Wed Dec 31 18:03:42 CST 1969'"
+}
 
-      run get_timestamp
-      assert_success
-      assert_output 1460967598004
+teardown() {
+  unstub date
+}
 
-      run get_timestamp
-      assert_success
-      assert_output 1460967598000
+@test "date format util formats date with expected arguments" {
+  result="$(format_date)"
+  [ "$result" == 'I am stubbed!' ]
 
-      run get_timestamp
-      assert_success
-      assert_output 1460967598000
+  result="$(format_date)"
+  [ "$result" == 'Wed Dec 31 18:03:42 CST 1969' ]
+}
+```
 
-      unstub date
-    }
-
-
-This verifies that `get_timestamp` indeed called `date` using the args defined in `${_DATE_ARGS}` (which can not be declared in the test-case with local), and made proper use of the output of it.
+This verifies that `format_date` indeed called `date` using the args defined in `${_DATE_ARGS}` (which can not be declared in the test-case with local), and made proper use of the output of it.
 
 The plan is verified, one by one, as the calls come in, but the final check that there are no remaining un-met plans at the end is left until the stub is removed with `unstub`.
 
@@ -126,4 +125,3 @@ Originally extracted from the [ruby-build][] test suite. Many thanks to its auth
 [ruby-build]: https://github.com/sstephenson/ruby-build
 [sstephenson]: https://github.com/sstephenson
 [mislav]: https://github.com/mislav
-[bats-assert]: https://github.com/ztombol/bats-assert
