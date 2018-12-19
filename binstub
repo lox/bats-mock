@@ -63,7 +63,7 @@ while IFS= read -r line; do
     # xargs respects quoted substrings
     while IFS= read -rd '' token; do
       parsed_patterns+=("$token")
-    done < <(xargs printf '%s\0' <<< "${patterns}")
+    done < <(xargs printf '%b\0' <<< "${patterns}")
 
     # debug "patterns  [${#parsed_patterns[@]}] = $(printf "'%q' " "${parsed_patterns[@]}")"
     # debug "arguments [${#arguments[@]}] = $(printf "'%q' " "${arguments[@]}")"
