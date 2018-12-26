@@ -12,7 +12,7 @@ Recommended installation is via git submodule. Assuming your project's bats
 tests are in `test`:
 
 ``` sh
-git submodule add https://github.com/jasonkarns/bats-mock test/helpers/mocks
+git submodule add https://github.com/lox/bats-mock test/helpers/mocks
 git commit -am 'added bats-mock module'
 ```
 
@@ -74,8 +74,6 @@ This verifies that `format_date` indeed called `date` using the args defined in 
 
 The plan is verified, one by one, as the calls come in, but the final check that there are no remaining un-met plans at the end is left until the stub is removed with `unstub`.
 
-Here, we used the `assert_success` and `assert_output` functions from [bats-assert][], but any check you use in your `bats` tests are fine to use.
-
 ### Unstubbing
 
 Once the test case is done, you should call `unstub <program>` in order to clean up the temporary files, and make a final check that all the plans have been met for the stub.
@@ -84,7 +82,7 @@ Once the test case is done, you should call `unstub <program>` in order to clean
 
 If you want to verify that your stub was passed the correct data in STDIN, you can redirect its content to a temporary file and check it.
 
-```
+```bash
 @test "send_message" {
 
 	stub curl \
