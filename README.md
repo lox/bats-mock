@@ -94,6 +94,49 @@ If you want to verify that your stub was passed the correct data in STDIN, you c
 }
 ```
 
+### Incremental Stubbing
+
+In some cases, when stubbing repeated calls to more than one program, the actual order of flow is often obscured by the default `stub` function's behavior, which is to overwrite any previous stub implementation. In this case, you can `export BATS_MOCK_APPEND=1` to modify the `stub` function to append to the stub program with multiple calls:
+
+```bash
+# This would actually be in a separate script, but for example...
+function install() {
+  apt-get update -q # Initial update for a bare system
+  apt-get install -y software-properties-common # Get apt-add-repository utility
+  apt-add-repository -y "ppa:/myfancystuff/ppa" # Add my repository
+  apt-get update -q # Another update for my repository
+  apt-get install -y myfancypackage # Install my stuff
+}
+
+@test "test install script awkwardly without incremental stubbing" {
+  stub apt-get \
+    "update -q : " \
+    "install -y software-properties-common : " \
+    "update -q : " \
+    "install -y myfancypackage : "
+  stub apt-add-repository \
+    "-y \"ppa:/myfancystuff/ppa\" : "
+  run install
+  # Checks go here...
+  unstub apt-get
+  unstub apt-add-repository
+}
+
+@test "test install script more naturally with incremental stubbing" {
+  export BATS_MOCK_APPEND=1 # This would be better in setup(), but for example...
+  # Also, you could now comment on each mock expectation...
+  stub apt-get "update -q : "
+  stub apt-get "install -y software-properties-common : "
+  stub apt-get "update -q : "
+  stub apt-get "install -y myfancypackage : "
+  stub apt-add-repository "-y \"ppa:/myfancystuff/ppa\" : "
+  run install
+  # Checks go here...
+  unstub apt-get
+  unstub apt-add-repository
+}
+```
+
 ## Troubleshooting
 
 It can be difficult to figure out why your mock has failed. You can enable debugging by setting an environment variable (in this case for `date`):
