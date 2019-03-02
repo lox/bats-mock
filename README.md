@@ -145,6 +145,24 @@ It can be difficult to figure out why your mock has failed. You can enable debug
 export DATE_STUB_DEBUG=/dev/tty
 ```
 
+With default behavior, stubs for all tests go into the same shared `${BATS_TMPDIR}` (`/tmp` on unix systems). This has the effect that if and when some mocking goes wrong, it can cause failure of later tests that deserve to pass. A good work-around for this is to use the `bats-file` support library from [ztombol/bats-file](https://github.com/ztombol/bats-file) to configure `bats-mock` to run in a sub-directory unique to each test. For example:
+
+```bash
+load helpers/file/load
+load helpers/mocks/stub
+
+setup() {
+  export TEST_TEMP_DIR="$(temp_make)"
+  export BATSLIB_TEMP_PRESERVE_ON_FAILURE=1
+  # Run bats-mock in TEST_TEMP_DIR to isolate each run
+  export BATS_MOCK_TMPDIR="${TEST_TEMP_DIR}/mock"
+  export BATS_MOCK_BINDIR="${BATS_MOCK_TMPDIR}/bin"
+  export PATH="$BATS_MOCK_BINDIR:$PATH"
+}
+```
+
+The above combination results in isolating each `@test`'s mocks from each other. The `BATSLIB_TEMP_PRESERVE_ON_FAILURE=1` setting provides the added benefit of leaving the temp directory around for inspection when the test fails, when you find yourself more deeply debugging your stubs.
+
 ## How it works
 
 (You may want to know this, if you get weird results there may be stray files lingering about messing with your state.)
