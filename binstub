@@ -77,8 +77,14 @@ while IFS= read -r line; do
       if [[ "$pattern" != "$argument" ]] && [[ "$pattern" != "*" ]] ; then
         debug "$(printf "match failed at idx %d, expected '%q', got '%q'" $i "$pattern" "$argument")"
         result=1
-        break
       fi
+    done
+
+    # Error out with debugging for any extra parameters
+    for (( i=${#parsed_patterns[@]}; i<${#arguments[@]}; i++ )); do
+      argument="${arguments[$i]}"
+      debug "$(printf "unexpected argument at idx %d, got '%q'" $i "${arguments[$i]}")"
+      result=1
     done
 
     # If the arguments matched, evaluate the command
