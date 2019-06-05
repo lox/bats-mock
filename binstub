@@ -19,8 +19,79 @@ _STUB_DEBUG="${PROGRAM}_STUB_DEBUG"
 
 debug() {
   if [ -n "${!_STUB_DEBUG}" ] ; then
-    echo "bats-mock($program): $@" >&${!_STUB_DEBUG}
+    pattern=$1
+    shift
+    printf "bats-mock(%s): $pattern\\n" "$program" "${@}" >&${!_STUB_DEBUG}
   fi
+}
+
+# from https://github.com/lox/bash-shellwords
+tokenize_shell_string() {
+  local input="$1"
+  local token=''
+  local escape=''
+  local quote=''
+  local quote_idx=''
+
+  tokenize_result=()
+
+  # Process the input character by character
+  for (( i=0 ; i<=${#input} ; i++ )) ; do
+    c=${input:i:1}
+    # debug '%-2q [#%d] [escape=%q] [quote=%q] [current=%q]' "$c" "$i" "$escape" "$quote" "$token"
+    # Handle an escaped character
+    if [[ -n "$escape" ]] ; then
+      token+="$c"
+      escape=''
+    # Handles an unescaped backslash, denoting that the next char is escaped
+    # Note that single quotes don't support escaping internally
+    elif [[ "$c" == \\ ]] && [[ "$quote" != "'" ]] ; then
+      escape="$c"
+    # Handle open quotes
+    elif [[ "$c" =~ [\"|\'] ]] && [[ -z "$quote" ]]; then
+      quote="$c"
+      quote_idx=$i
+    # Handle matching closed quotes
+    elif [[ -n "$quote" ]] && [[ "$c" == "$quote" ]]; then
+      # debug "closing quote [%q]" "$token"
+      # Handle empty quotes
+      if [[ -z "$token" ]] ; then
+        tokenize_result+=("$token")
+      fi
+      quote=''
+      quote_idx=''
+    # Handle whitespace delimiters when outside of quotes
+    elif [[ -n "$token" ]] && [[ -z "$quote" ]] && [[ "$c" =~ [[:space:]] ]] ; then
+      # debug "adding token [%q]" "$token"
+      tokenize_result+=("$token")
+      token=''
+    # End of input
+    elif [[ $i == "${#input}" ]] && [[ -n "$token" ]] ; then
+      if [[ -n "$quote" ]] ; then
+        echo "Unexpected end of string, quote not closed from index $quote_idx" >&2
+        return 1
+      fi
+      # debug "adding token [%q]" "$token"
+      tokenize_result+=("$token")
+      token=''
+    # Any other token
+    else
+      # Detect unescaped dollar signs in double quotes
+      if [[ "$c" == '$' ]] && [[ "$quote" == '"' ]] ; then
+        return 100
+      # Detect shell characters when not quoted
+      elif [[ -z "$quote" ]] && [[ "$c" =~ [][\!\#\$\&\(\)\*\;\<\>\?\\\^\`\{\}] ]] ; then
+        return 100
+      fi
+      # Only capture spaces inside a token
+      if [[ "$c" =~ [[:space:]] ]] && [[ -z "$token" ]]; then
+        # debug "skipping space"
+        continue
+      else
+        token+="$c"
+      fi
+    fi
+  done
 }
 
 [ -e "${!_STUB_PLAN}" ] || exit 1
@@ -31,14 +102,14 @@ eval "${_STUB_INDEX}"=1
 eval "${_STUB_RESULT}"=0
 [ ! -e "${!_STUB_RUN}" ] || source "${!_STUB_RUN}"
 
-if [ -z "${!_STUB_END}" ] && [ -n "${!_STUB_DEBUG}" ]; then
-  debug "got $program $@" >&${!_STUB_DEBUG}
-fi
+# if [ -z "${!_STUB_END}" ] && [ -n "${!_STUB_DEBUG}" ]; then
+#   debug "%s" "$*" >&${!_STUB_DEBUG}
+# fi
 
 # Loop over each line in the plan.
 index=0
 while IFS= read -r line; do
-  index=$(($index + 1))
+  index=$((index + 1))
 
   # if [ -n "${!_STUB_DEBUG}" ]; then
   #   echo "bats-mock: [idx $index, want ${!_STUB_INDEX}] $line" >&${!_STUB_DEBUG}
@@ -57,21 +128,20 @@ while IFS= read -r line; do
       command="${command#* : }"
     fi
 
+    # debug "patterns = $patterns"
+    # debug "command = $command"
+
     arguments=("$@")
-    parsed_patterns=()
+    tokenize_shell_string "$patterns" || exit 1
 
-    # xargs respects quoted substrings
-    while IFS= read -rd '' token; do
-      parsed_patterns+=("$token")
-    done < <(xargs printf '%b\0' <<< "${patterns}")
-
-    # debug "patterns  [${#parsed_patterns[@]}] = $(printf "'%q' " "${parsed_patterns[@]}")"
+    # debug "tokenize_result [${#tokenize_result[@]}] = $(printf "'%q' " "${tokenize_result[@]}")"
     # debug "arguments [${#arguments[@]}] = $(printf "'%q' " "${arguments[@]}")"
 
-    # Match the expected argument patterns to actual
-    # arguments.
-    for (( i=0; i<${#parsed_patterns[@]}; i++ )); do
-      pattern="${parsed_patterns[$i]}"
+    matched=0
+
+    # Match the expected argument patterns to actual arguments.
+    for (( i=0; i<${#tokenize_result[@]}; i++ )); do
+      pattern="${tokenize_result[$i]}"
       argument="${arguments[$i]}"
 
       if [[ "$pattern" != "$argument" ]] && [[ "$pattern" != "*" ]] ; then
@@ -79,7 +149,16 @@ while IFS= read -r line; do
         result=1
         break
       fi
+
+      matched=$((matched + 1))
     done
+
+    # If the number of arguments didn't match complain about it
+    if [[ $matched -ne ${#tokenize_result[@]} ]] ; then
+      debug "$(printf "matched %d arguments, expected %d" "$matched" "${#tokenize_result[@]}")"
+      eval "${_STUB_RESULT}"=2
+      continue
+    fi
 
     # If the arguments matched, evaluate the command
     # in a subshell. Otherwise, log the failure.
@@ -134,3 +213,4 @@ else
   debug "result $status"
   exit "$status"
 fi
+
