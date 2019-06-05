@@ -19,7 +19,7 @@ _STUB_DEBUG="${PROGRAM}_STUB_DEBUG"
 
 debug() {
   if [ -n "${!_STUB_DEBUG}" ] ; then
-    echo "bats-mock($program): $@" >&${!_STUB_DEBUG}
+    echo "bats-mock($program): $*" >&${!_STUB_DEBUG}
   fi
 }
 
@@ -32,13 +32,13 @@ eval "${_STUB_RESULT}"=0
 [ ! -e "${!_STUB_RUN}" ] || source "${!_STUB_RUN}"
 
 if [ -z "${!_STUB_END}" ] && [ -n "${!_STUB_DEBUG}" ]; then
-  debug "got $program $@" >&${!_STUB_DEBUG}
+  debug "got $program $*" >&${!_STUB_DEBUG}
 fi
 
 # Loop over each line in the plan.
 index=0
 while IFS= read -r line; do
-  index=$(($index + 1))
+  index=$((index + 1))
 
   # if [ -n "${!_STUB_DEBUG}" ]; then
   #   echo "bats-mock: [idx $index, want ${!_STUB_INDEX}] $line" >&${!_STUB_DEBUG}
@@ -60,10 +60,18 @@ while IFS= read -r line; do
     arguments=("$@")
     parsed_patterns=()
 
-    # xargs respects quoted substrings
+    # Check we can run xargs on the patterns. We use xargs to parse quoted substrings
+    # without having to use eval
+    if ! xargs_output="$(xargs printf '%b\0' <<< "${patterns}")" ; then
+      debug "xargs failed to parse ${patterns}"
+      eval "${_STUB_RESULT}"=2
+      break
+    fi
+
+    # Tokenize on null-bytes from xargs above
     while IFS= read -rd '' token; do
       parsed_patterns+=("$token")
-    done < <(xargs printf '%b\0' <<< "${patterns}")
+    done <<< "$xargs_output"
 
     # debug "patterns  [${#parsed_patterns[@]}] = $(printf "'%q' " "${parsed_patterns[@]}")"
     # debug "arguments [${#arguments[@]}] = $(printf "'%q' " "${arguments[@]}")"
@@ -80,6 +88,15 @@ while IFS= read -r line; do
         break
       fi
     done
+
+    # Check if there are unmatched arguments
+    if [[ ${#arguments[@]} -gt ${#parsed_patterns[@]} ]] ; then
+      idx="${#parsed_patterns[@]}"
+      argument="${arguments[$idx]}"
+      debug "$(printf "unexpected argument '%q' at idx %d" "$argument" "$idx")"
+      result=2
+      break
+    fi
 
     # If the arguments matched, evaluate the command
     # in a subshell. Otherwise, log the failure.
