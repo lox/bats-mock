@@ -7,11 +7,6 @@ function teardown() {
     unstub mycommand || true
 }
 
-function teardown() {
-    # Just clean up
-    unstub mycommand || true
-}
-
 # Uncomment to enable stub debug output:
 # export MYCOMMAND_STUB_DEBUG=/dev/tty
 
@@ -41,7 +36,7 @@ function teardown() {
 }
 
 
-@test "Invoke a stub multiple times" {
+@test "Invoke a stub to often" {
   stub mycommand "llamas : echo running llamas"
 
   run bash -c "mycommand llamas"
@@ -92,10 +87,23 @@ function teardown() {
   unstub mycommand
 }
 
-@test "Fail if empty subbed command called" {
+@test "Fail if empty stubbed command called" {
   stub mycommand
   mycommand --help || true # Don't fail here
   run unstub mycommand
   [ "$status" -eq 1 ]
-  [[ "$output" == "" ]]
+  [ "$output" == "" ]
+}
+
+@test "Fail if called out of sequence" {
+  stub mycommand \
+    "foo : echo 'OK'" \
+    "bar : echo '1K'" \
+    "baz : echo '2K'"
+  run bash -c "mycommand foo; mycommand baz; mycommand bar"
+  [ "$status" -eq 1 ]
+  [ "$output" == "OK" ]
+  run unstub mycommand
+  [ "$status" -eq 1 ]
+  [ "$output" == "" ]
 }
