@@ -4,7 +4,7 @@ load '../stub'
 
 function teardown() {
     # Just clean up
-    unstub mycommand || true
+    unstub --allow-missing mycommand
 }
 
 # Uncomment to enable stub debug output:
@@ -119,4 +119,41 @@ function teardown() {
   [ "$input" == "Some input" ]
   rm "$file"
   unstub curl
+}
+
+@test "Error with --allow-missing" {
+  # Case 1: Double unstub
+  stub mycommand "foo : echo 'Bar'"
+  run mycommand foo
+  [ "$status" -eq 0 ]
+  run unstub mycommand
+  [ "$status" -eq 0 ]
+  [ "$output" == "" ]
+  run unstub mycommand
+  [ "$status" -eq 1 ]
+  [ "$output" == "mycommand is not stubbed" ]
+  # With --allow-missing
+  stub mycommand "foo : echo 'Bar'"
+  run mycommand foo
+  [ "$status" -eq 0 ]
+  # First removes
+  run unstub --allow-missing mycommand
+  [ "$status" -eq 0 ]
+  [ "$output" == "" ]
+  # Then errors with regular
+  run unstub mycommand
+  [ "$status" -eq 1 ]
+  [ "$output" == "mycommand is not stubbed" ]
+  # But not with param
+  run unstub --allow-missing mycommand
+  [ "$status" -eq 0 ]
+  [ "$output" == "" ]
+
+  # Case 2: Unstub non-stubbed command
+  run unstub non_stubbed_command
+  [ "$status" -eq 1 ]
+  [ "$output" == "non_stubbed_command is not stubbed" ]
+  run unstub --allow-missing non_stubbed_command2
+  [ "$status" -eq 0 ]
+  [ "$output" == "" ]
 }
