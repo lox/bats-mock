@@ -61,7 +61,10 @@ while IFS= read -r line; do
     # strings. This is less than ideal, but the pattern input
     # is also already eval'd elsewhere. At least this handles
     # things like newlines (which xargs doesn't)
+    origFlags="$-"
+    set -f
     eval "parsed_patterns=(${patterns})"
+    set "-$origFlags"
 
     debug "patterns  [${#parsed_patterns[@]}] = $(printf "'%q' " "${parsed_patterns[@]}")"
     debug "arguments [${#arguments[@]}] = $(printf "'%q' " "${arguments[@]}")"
