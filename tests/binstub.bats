@@ -107,3 +107,16 @@ function teardown() {
   [ "$status" -eq 1 ]
   [ "$output" == "" ]
 }
+
+@test "Check stdin" {
+  file="$(mktemp "${BATS_TMPDIR}/output.XXXXXXXX")"
+  stub curl \
+    "foo : cat > '${file}'; echo 'mock output'"
+  run bash -c "echo 'Some input' | curl foo"
+  [ "$status" -eq 0 ]
+  [ "$output" == "mock output" ]
+  input="$(cat "$file")"
+  [ "$input" == "Some input" ]
+  rm "$file"
+  unstub curl
+}
