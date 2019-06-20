@@ -249,3 +249,44 @@ function teardown() {
   unstub touch
   unstub mycommand
 }
+
+@test "Allow any argument by omitting the args and colon" {
+  # 0 args
+  stub mycommand "echo OK"
+  run mycommand
+  [ "$status" -eq 0 ]
+  [ "$output" == "OK" ]
+  # 1 arg
+  stub mycommand "echo OK"
+  run mycommand foo
+  [ "$status" -eq 0 ]
+  [ "$output" == "OK" ]
+  # 2 args
+  stub mycommand "echo OK"
+  run mycommand foo bar
+  [ "$status" -eq 0 ]
+  [ "$output" == "OK" ]
+  unstub mycommand
+}
+
+@test "Allow any argument by starting with double colon" {
+  # This allows including the colon separator in the command
+  stub mycommand "::echo ' includes : colon with spaces'"
+  run mycommand foo bar
+  [ "$status" -eq 0 ]
+  [ "$output" == ' includes : colon with spaces' ]
+  unstub mycommand
+}
+
+@test "Assume no arguments when starting with a colon and space" {
+  stub mycommand ": echo OK"
+  run mycommand
+  [ "$status" -eq 0 ]
+  [ "$output" == 'OK' ]
+  stub mycommand ": echo OK"
+  run mycommand foo
+  [ "$status" -eq 1 ]
+  [ "$output" == '' ]
+  run unstub mycommand
+  [ "$status" -eq 1 ]
+}

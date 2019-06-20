@@ -46,49 +46,55 @@ while IFS= read -r line; do
     # Start off by assuming success.
     match_found=1
 
-    # Split the line into an array of arguments to
-    # match and a command to run to produce output.
-    command=" $line"
-    if [ "$command" != "${command/ : }" ]; then
-      patterns="${command%% : *}"
-      command="${command#* : }"
-    fi
-
     arguments=("$@")
-    parsed_patterns=()
-
-    # Parse patterns into tokens using eval to respect quoted
-    # strings. This is less than ideal, but the pattern input
-    # is also already eval'd elsewhere. At least this handles
-    # things like newlines (which xargs doesn't)
-    origFlags="$-"
-    set -f
-    eval "parsed_patterns=(${patterns})"
-    set "-$origFlags"
-
-    debug "patterns  [${#parsed_patterns[@]}] = $(printf "'%q' " "${parsed_patterns[@]}")"
     debug "arguments [${#arguments[@]}] = $(printf "'%q' " "${arguments[@]}")"
 
-    # Match the expected argument patterns to actual
-    # arguments.
-    for (( i=0; i<${#parsed_patterns[@]}; i++ )); do
-      pattern="${parsed_patterns[$i]}"
-      argument="${arguments[$i]}"
-      case "$argument" in
-        $pattern ) ;;
-        "$pattern" ) ;;
-        * ) debug "$(printf "match failed at idx %d, expected '%q', got '%q'" $i "$pattern" "$argument")"
-            match_found=2
-            break ;;
-      esac
-    done
+    # Split the line into an array of arguments to match and a command to run.
+    # If the line does not contain ' : ' and does not start with a colon
+    # then the call is assumed to match any arguments and execute the command.
+    # Special case: Lines starting with double colon are also handled that way
+    # and get the double colons removed
+    command=" $line"
+    if [[ "$line" == ::* ]]; then
+      command="${line#::}"
+    elif [ "$command" != "${command/ : }" ]; then
+      patterns="${command%% : *}"
+      command="${command#* : }"
 
-    # Check if there are unmatched arguments
-    if [[ ${#arguments[@]} -gt ${#parsed_patterns[@]} ]] ; then
-      idx="${#parsed_patterns[@]}"
-      argument="${arguments[$idx]}"
-      debug "$(printf "unexpected argument '%q' at idx %d" "$argument" "$idx")"
-      match_found=3
+      parsed_patterns=()
+
+      # Parse patterns into tokens using eval to respect quoted
+      # strings. This is less than ideal, but the pattern input
+      # is also already eval'd elsewhere. At least this handles
+      # things like newlines (which xargs doesn't)
+      origFlags="$-"
+      set -f
+      eval "parsed_patterns=(${patterns})"
+      set "-$origFlags"
+
+      debug "patterns  [${#parsed_patterns[@]}] = $(printf "'%q' " "${parsed_patterns[@]}")"
+
+      # Match the expected argument patterns to actual
+      # arguments.
+      for (( i=0; i<${#parsed_patterns[@]}; i++ )); do
+        pattern="${parsed_patterns[$i]}"
+        argument="${arguments[$i]}"
+        case "$argument" in
+          $pattern ) ;;
+          "$pattern" ) ;;
+          * ) debug "$(printf "match failed at idx %d, expected '%q', got '%q'" $i "$pattern" "$argument")"
+              match_found=2
+              break ;;
+        esac
+      done
+
+      # Check if there are unmatched arguments
+      if [[ ${#arguments[@]} -gt ${#parsed_patterns[@]} ]] ; then
+        idx="${#parsed_patterns[@]}"
+        argument="${arguments[$idx]}"
+        debug "$(printf "unexpected argument '%q' at idx %d" "$argument" "$idx")"
+        match_found=3
+      fi
     fi
     break
   fi
