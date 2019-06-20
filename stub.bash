@@ -1,6 +1,11 @@
 BATS_MOCK_TMPDIR="${BATS_TMPDIR}"
 BATS_MOCK_BINDIR="${BATS_MOCK_TMPDIR}/bin"
 
+export BATS_MOCK_REAL_mkdir=$(which mkdir)
+export BATS_MOCK_REAL_ln=$(which ln)
+export BATS_MOCK_REAL_touch=$(which touch)
+export BATS_MOCK_REAL_rm=$(which rm)
+
 PATH="$BATS_MOCK_BINDIR:$PATH"
 
 stub() {
@@ -12,10 +17,10 @@ stub() {
   export "${prefix}_STUB_RUN"="${BATS_MOCK_TMPDIR}/${program}-stub-run"
   export "${prefix}_STUB_END"=
 
-  mkdir -p "${BATS_MOCK_BINDIR}"
-  ln -sf "${BASH_SOURCE[0]%stub.bash}binstub" "${BATS_MOCK_BINDIR}/${program}"
+  "$BATS_MOCK_REAL_mkdir" -p "${BATS_MOCK_BINDIR}"
+  "$BATS_MOCK_REAL_ln" -sf "${BASH_SOURCE[0]%stub.bash}binstub" "${BATS_MOCK_BINDIR}/${program}"
 
-  touch "${BATS_MOCK_TMPDIR}/${program}-stub-plan"
+  "$BATS_MOCK_REAL_touch" "${BATS_MOCK_TMPDIR}/${program}-stub-plan"
   for arg in "$@"; do printf "%s\n" "$arg" >> "${BATS_MOCK_TMPDIR}/${program}-stub-plan"; done
 }
 
@@ -39,7 +44,7 @@ unstub() {
     STATUS=1
   fi
 
-  rm -f "$path"
-  rm -f "${BATS_MOCK_TMPDIR}/${program}-stub-plan" "${BATS_MOCK_TMPDIR}/${program}-stub-run"
+  "$BATS_MOCK_REAL_rm" -f "$path"
+  "$BATS_MOCK_REAL_rm" -f "${BATS_MOCK_TMPDIR}/${program}-stub-plan" "${BATS_MOCK_TMPDIR}/${program}-stub-run"
   return "$STATUS"
 }

@@ -233,3 +233,19 @@ function teardown() {
 2K'
   [ "$output" = "$expected" ]
 }
+
+@test "Stubbing still works when some util binaries are stubbed" {
+  stub rm
+  stub mkdir
+  stub ln
+  stub touch
+  stub mycommand " : echo OK"
+  run mycommand
+  [ "$status" -eq 0 ]
+  [ "$output" == "OK" ]
+  unstub rm
+  unstub mkdir
+  unstub ln
+  unstub touch
+  unstub mycommand
+}

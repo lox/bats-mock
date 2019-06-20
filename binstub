@@ -104,7 +104,7 @@ if [ -n "${!_STUB_END}" ]; then
   fi
 
   # Clean up the run file.
-  rm -f "${!_STUB_RUN}"
+  "$BATS_MOCK_REAL_rm" -f "${!_STUB_RUN}"
 
   # If the number of lines in the plan is larger than
   # the requested index, we failed.
