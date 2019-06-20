@@ -1,12 +1,8 @@
 #!/usr/bin/env bash
 set -e
 
-# If stdin comes from a pipe, save its content for later
-if ! [ -t 0 ]; then
-	input="$(cat)"
-fi
-
-status=0
+# Assume failure of stubbed command
+status=1
 program="${0##*/}"
 PROGRAM="$(echo "$program" | tr a-z- A-Z_)"
 
@@ -31,12 +27,13 @@ eval "${_STUB_INDEX}"=1
 eval "${_STUB_RESULT}"=0
 [ ! -e "${!_STUB_RUN}" ] || source "${!_STUB_RUN}"
 
-if [ -z "${!_STUB_END}" ] && [ -n "${!_STUB_DEBUG}" ]; then
-  debug "got $program $*" >&${!_STUB_DEBUG}
+if [ -z "${!_STUB_END}" ]; then
+  debug "got $program $*"
 fi
 
 # Loop over each line in the plan.
 index=0
+match_found=0
 while IFS= read -r line; do
   index=$((index + 1))
 
@@ -47,69 +44,64 @@ while IFS= read -r line; do
   if [ -z "${!_STUB_END}" ] && [ $index -eq "${!_STUB_INDEX}" ]; then
     # We found the plan line we're interested in.
     # Start off by assuming success.
-    result=0
-
-    # Split the line into an array of arguments to
-    # match and a command to run to produce output.
-    command=" $line"
-    if [ "$command" != "${command/ : }" ]; then
-      patterns="${command%% : *}"
-      command="${command#* : }"
-    fi
+    match_found=1
 
     arguments=("$@")
-    parsed_patterns=()
-
-    # Parse patterns into tokens using eval to respect quoted
-    # strings. This is less than ideal, but the pattern input
-    # is also already eval'd elsewhere. At least this handles
-    # things like newlines (which xargs doesn't)
-    eval "parsed_patterns=(${patterns})"
-
-    debug "patterns  [${#parsed_patterns[@]}] = $(printf "'%q' " "${parsed_patterns[@]}")"
     debug "arguments [${#arguments[@]}] = $(printf "'%q' " "${arguments[@]}")"
 
-    # Match the expected argument patterns to actual
-    # arguments.
-    for (( i=0; i<${#parsed_patterns[@]}; i++ )); do
-      pattern="${parsed_patterns[$i]}"
-      argument="${arguments[$i]}"
+    # Split the line into an array of arguments to match and a command to run.
+    # If the line does not contain ' : ' and does not start with a colon
+    # then the call is assumed to match any arguments and execute the command.
+    # Special case: Lines starting with double colon are also handled that way
+    # and get the double colons removed
+    command=" $line"
+    if [[ "$line" == ::* ]]; then
+      command="${line#::}"
+    elif [ "$command" != "${command/ : }" ]; then
+      patterns="${command%% : *}"
+      command="${command#* : }"
 
-      if [[ "$pattern" != "$argument" ]] && [[ "$pattern" != "*" ]] ; then
-        debug "$(printf "match failed at idx %d, expected '%q', got '%q'" $i "$pattern" "$argument")"
-        result=1
-        break
+      parsed_patterns=()
+
+      # Parse patterns into tokens using eval to respect quoted
+      # strings. This is less than ideal, but the pattern input
+      # is also already eval'd elsewhere. At least this handles
+      # things like newlines (which xargs doesn't)
+      origFlags="$-"
+      set -f
+      eval "parsed_patterns=(${patterns})"
+      set "-$origFlags"
+
+      debug "patterns  [${#parsed_patterns[@]}] = $(printf "'%q' " "${parsed_patterns[@]}")"
+
+      # Match the expected argument patterns to actual
+      # arguments.
+      for (( i=0; i<${#parsed_patterns[@]}; i++ )); do
+        pattern="${parsed_patterns[$i]}"
+        argument="${arguments[$i]}"
+        case "$argument" in
+          $pattern ) ;;
+          "$pattern" ) ;;
+          * ) debug "$(printf "match failed at idx %d, expected '%q', got '%q'" $i "$pattern" "$argument")"
+              match_found=2
+              break ;;
+        esac
+      done
+
+      # Check if there are unmatched arguments
+      if [[ ${#arguments[@]} -gt ${#parsed_patterns[@]} ]] ; then
+        idx="${#parsed_patterns[@]}"
+        argument="${arguments[$idx]}"
+        debug "$(printf "unexpected argument '%q' at idx %d" "$argument" "$idx")"
+        match_found=3
       fi
-    done
-
-    # Check if there are unmatched arguments
-    if [[ ${#arguments[@]} -gt ${#parsed_patterns[@]} ]] ; then
-      idx="${#parsed_patterns[@]}"
-      argument="${arguments[$idx]}"
-      debug "$(printf "unexpected argument '%q' at idx %d" "$argument" "$idx")"
-      result=2
-      break
     fi
-
-    # If the arguments matched, evaluate the command
-    # in a subshell. Otherwise, log the failure.
-    if [ $result -eq 0 ] ; then
-      debug "running $command"
-      debug "command input is $input"
-      set +e
-      ( eval "$command"  <<< "$input" )
-      status="$?"
-      debug "command result was $status"
-      set -e
-    else
-      eval "${_STUB_RESULT}"=1
-    fi
+    break
   fi
 done < "${!_STUB_PLAN}"
 
 
 if [ -n "${!_STUB_END}" ]; then
-  echo "${_STUB_DEBUG}"
   debug "unstubbing"
 
   if [ ! -f "${!_STUB_RUN}" ] && [ -n "${!_STUB_DEBUG}" ] ; then
@@ -118,7 +110,7 @@ if [ -n "${!_STUB_END}" ]; then
   fi
 
   # Clean up the run file.
-  rm -f "${!_STUB_RUN}"
+  "$BATS_MOCK_REAL_rm" -f "${!_STUB_RUN}"
 
   # If the number of lines in the plan is larger than
   # the requested index, we failed.
@@ -129,9 +121,16 @@ if [ -n "${!_STUB_END}" ]; then
   # Return the result.
   exit "${!_STUB_RESULT}"
 else
-  # If the requested index is larger than the number
-  # of lines in the plan file, we failed.
-  if [ "${!_STUB_INDEX}" -gt $index ]; then
+  # If the arguments matched, evaluate the command
+  # in a subshell. Otherwise, log the failure.
+  if [ $match_found -eq 1 ] ; then
+    debug "running $command"
+    set +e
+    ( eval "$command" )
+    status="$?"
+    debug "command result was $status"
+    set -e
+  else
     debug "no plan row found"
     eval "${_STUB_RESULT}"=1
   fi
@@ -142,5 +141,5 @@ else
   } > "${!_STUB_RUN}"
 
   debug "result ${!_STUB_RESULT}"
-  exit "${!_STUB_RESULT}"
+  exit "$status"
 fi

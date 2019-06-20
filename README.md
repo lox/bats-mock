@@ -94,6 +94,65 @@ If you want to verify that your stub was passed the correct data in STDIN, you c
 }
 ```
 
+### Accepting any arguments
+
+Sometimes the argument is to complicated to determine in advance so you just want to ensure that an argument is given.
+Or you want to assert that the argument matches a given pattern, e.g. starts with a prefix.   
+When even that is undesired then you can even accept any call with any number of arguments.
+
+```bash
+@test "send_message" {
+
+	stub grep \
+    '* /home* : printf "%s" "$1" > ${_RESOURCES_DIR}/mock-output' \
+    'exit 0'
+  
+  # Matches first and hence prints the patter to mock-output
+  grep "$complicated_pattern" /home/user/file
+
+  # Matches second and simply returns success
+  grep -E -i "$some_pattern" "$some_file"
+
+  # If your command contains ' : ' just start with double-colon
+  stub cat '::echo "Hello : World"'
+  # Prints "Hello : World"
+  cat foo bar
+
+  # Note that a single colon at the start is interpreted as "no arguments"
+  stub cat ': echo "OK"'
+  ! cat foo # `cat` stub fails as an argument was passed
+
+  # But don't forget the space!
+  stub cat':echo "OK"'
+  # Will accept any arguments and execute `:echo "OK"` -> Fails
+  !cat foo # command `:echo` not found
+}
+```
+
+### Incremental Stubbing
+
+In some case it might be preferable to define the invocation plan incrementally to mirror the actual behavior of the program under test.
+This can be done by invocing `stub` multiple times with the same command.   
+In case you want to to start with a new plan call `unstub` first.
+
+```bash
+# Function to test
+function install() {
+  apt-get update
+  pt-add-repository -y myrepo
+  apt-get update
+}
+
+@test "test installation" {
+  stub apt-get "update : "
+  stub apt-add-repository "-y myrepo : "
+  stub apt-get "update : " # Appends to existing plan
+  run install
+  unstub apt-get # Verifies plan and removes all remaining files
+  stub apt-get "upgrade" # Start with a new plan
+}
+```
+
 ## Troubleshooting
 
 It can be difficult to figure out why your mock has failed. You can enable debugging by setting an environment variable (in this case for `date`):
