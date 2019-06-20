@@ -1,11 +1,6 @@
 #!/usr/bin/env bash
 set -e
 
-# If stdin comes from a pipe, save its content for later
-if ! [ -t 0 ]; then
-	input="$(cat)"
-fi
-
 # Assume failure of stubbed command
 status=1
 program="${0##*/}"
@@ -38,6 +33,7 @@ fi
 
 # Loop over each line in the plan.
 index=0
+match_found=0
 while IFS= read -r line; do
   index=$((index + 1))
 
@@ -48,7 +44,7 @@ while IFS= read -r line; do
   if [ -z "${!_STUB_END}" ] && [ $index -eq "${!_STUB_INDEX}" ]; then
     # We found the plan line we're interested in.
     # Start off by assuming success.
-    result=0
+    match_found=1
 
     # Split the line into an array of arguments to
     # match and a command to run to produce output.
@@ -78,7 +74,7 @@ while IFS= read -r line; do
 
       if [[ "$pattern" != "$argument" ]] && [[ "$pattern" != "*" ]] ; then
         debug "$(printf "match failed at idx %d, expected '%q', got '%q'" $i "$pattern" "$argument")"
-        result=1
+        match_found=2
         break
       fi
     done
@@ -88,23 +84,9 @@ while IFS= read -r line; do
       idx="${#parsed_patterns[@]}"
       argument="${arguments[$idx]}"
       debug "$(printf "unexpected argument '%q' at idx %d" "$argument" "$idx")"
-      result=2
-      break
+      match_found=3
     fi
-
-    # If the arguments matched, evaluate the command
-    # in a subshell. Otherwise, log the failure.
-    if [ $result -eq 0 ] ; then
-      debug "running $command"
-      debug "command input is $input"
-      set +e
-      ( eval "$command"  <<< "$input" )
-      status="$?"
-      debug "command result was $status"
-      set -e
-    else
-      eval "${_STUB_RESULT}"=1
-    fi
+    break
   fi
 done < "${!_STUB_PLAN}"
 
@@ -129,9 +111,16 @@ if [ -n "${!_STUB_END}" ]; then
   # Return the result.
   exit "${!_STUB_RESULT}"
 else
-  # If the requested index is larger than the number
-  # of lines in the plan file, we failed.
-  if [ "${!_STUB_INDEX}" -gt $index ]; then
+  # If the arguments matched, evaluate the command
+  # in a subshell. Otherwise, log the failure.
+  if [ $match_found -eq 1 ] ; then
+    debug "running $command"
+    set +e
+    ( eval "$command" )
+    status="$?"
+    debug "command result was $status"
+    set -e
+  else
     debug "no plan row found"
     eval "${_STUB_RESULT}"=1
   fi
