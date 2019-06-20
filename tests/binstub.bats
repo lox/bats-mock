@@ -157,3 +157,52 @@ function teardown() {
   [ "$status" -eq 0 ]
   [ "$output" == "" ]
 }
+
+@test "Using * as parameter matches any parameter" {
+  # * matches any param
+  stub mycommand '* : echo OK'
+  run mycommand foo
+  [ "$status" -eq 0 ]
+  [ "$output" == "OK" ]
+  # Also works in any position
+  stub mycommand 'first second * : echo OK'
+  run mycommand first second foo
+  [ "$status" -eq 0 ]
+  [ "$output" == "OK" ]
+  stub mycommand 'first * last : echo OK'
+  run mycommand first foo last
+  [ "$status" -eq 0 ]
+  [ "$output" == "OK" ]
+  stub mycommand '* second last : echo OK'
+  run mycommand foo second last
+  [ "$status" -eq 0 ]
+  [ "$output" == "OK" ]
+  # Also matches literal *
+  stub mycommand '* : echo OK'
+  run mycommand '*'
+  [ "$status" -eq 0 ]
+  [ "$output" == "OK" ]
+  unstub mycommand
+}
+
+@test "Match parameters with whitespace" {
+  # Single quotes
+  stub mycommand "'first arg' 'second arg' : echo OK"
+  run mycommand "first arg" "second arg"
+  [ "$status" -eq 0 ]
+  [ "$output" == "OK" ]
+  # Double quotes
+  stub mycommand '"first arg" "second arg" : echo OK'
+  run mycommand "first arg" "second arg"
+  [ "$status" -eq 0 ]
+  [ "$output" == "OK" ]
+  unstub mycommand
+}
+
+@test "Match parameter with embedded command line" {
+  stub mycommand "-c 'echo \"Hello \$USER\"' : echo OK"
+  run mycommand -c 'echo "Hello $USER"'
+  [ "$status" -eq 0 ]
+  [ "$output" == "OK" ]
+  unstub mycommand
+}
