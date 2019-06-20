@@ -27,8 +27,8 @@ eval "${_STUB_INDEX}"=1
 eval "${_STUB_RESULT}"=0
 [ ! -e "${!_STUB_RUN}" ] || source "${!_STUB_RUN}"
 
-if [ -z "${!_STUB_END}" ] && [ -n "${!_STUB_DEBUG}" ]; then
-  debug "got $program $*" >&${!_STUB_DEBUG}
+if [ -z "${!_STUB_END}" ]; then
+  debug "got $program $*"
 fi
 
 # Loop over each line in the plan.
