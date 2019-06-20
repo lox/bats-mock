@@ -7,6 +7,11 @@ function teardown() {
     unstub mycommand || true
 }
 
+function teardown() {
+    # Just clean up
+    unstub mycommand || true
+}
+
 # Uncomment to enable stub debug output:
 # export MYCOMMAND_STUB_DEBUG=/dev/tty
 
@@ -39,9 +44,18 @@ function teardown() {
 @test "Invoke a stub multiple times" {
   stub mycommand "llamas : echo running llamas"
 
-  run bash -c "mycommand llamas && mycommand alpacas"
+  run bash -c "mycommand llamas"
+  [ "$status" -eq 0 ]
+  [ "$output" == "running llamas" ]
 
+  # To often -> return failure
+  run bash -c "mycommand llamas"
   [ "$status" -eq 1 ]
+  [ "$output" == "" ]
+
+  run unstub mycommand
+  [ "$status" -eq 1 ]
+  [[ "$output" == "" ]]
 }
 
 @test "Stub a single command with quoted strings" {
@@ -57,9 +71,9 @@ function teardown() {
 
 @test "Return status of passed stub" {
   stub myCommand \
-    " : return 1" \
-    " : return 42" \
-    " : return 0"
+    " : exit 1" \
+    " : exit 42" \
+    " : exit 0"
   run myCommand
   [ "$status" -eq 1 ]
   [ "$output" == "" ]

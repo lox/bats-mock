@@ -6,7 +6,8 @@ if ! [ -t 0 ]; then
 	input="$(cat)"
 fi
 
-status=0
+# Assume failure of stubbed command
+status=1
 program="${0##*/}"
 PROGRAM="$(echo "$program" | tr a-z- A-Z_)"
 
@@ -141,5 +142,5 @@ else
   } > "${!_STUB_RUN}"
 
   debug "result ${!_STUB_RESULT}"
-  exit "${!_STUB_RESULT}"
+  exit "$status"
 fi
