@@ -109,7 +109,6 @@ done < "${!_STUB_PLAN}"
 
 
 if [ -n "${!_STUB_END}" ]; then
-  echo "${_STUB_DEBUG}"
   debug "unstubbing"
 
   if [ ! -f "${!_STUB_RUN}" ] && [ -n "${!_STUB_DEBUG}" ] ; then
