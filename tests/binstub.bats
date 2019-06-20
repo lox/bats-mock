@@ -49,3 +49,32 @@ load '../stub'
 
   unstub mycommand
 }
+
+@test "Error with unstub --exists" {
+  # Case 1: Double unstub
+  stub mycommand "foo : echo 'Bar'"
+  run mycommand foo
+  [ "$status" -eq 0 ]
+  run unstub mycommand
+  [ "$status" -eq 0 ]
+  [ "$output" == "" ]
+  run unstub mycommand
+  [ "$status" -eq 0 ]
+  [ "$output" == "" ]
+  # With --exists
+  stub mycommand "foo : echo 'Bar'"
+  run mycommand foo
+  [ "$status" -eq 0 ]
+  run unstub --exists mycommand
+  [ "$status" -eq 0 ]
+  [ "$output" == "" ]
+  run unstub --exists mycommand
+  [ "$status" -eq 1 ]
+  [ "$output" == "mycommand is not stubbed" ]
+  # Case 2: Unstub non-stubbed command
+  run unstub --exists non_stubbed_command
+  [ "$status" -eq 1 ]
+  run unstub non_stubbed_command2
+  [ "$status" -eq 0 ]
+  [ "$output" == "" ]
+}
