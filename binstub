@@ -74,12 +74,13 @@ while IFS= read -r line; do
     for (( i=0; i<${#parsed_patterns[@]}; i++ )); do
       pattern="${parsed_patterns[$i]}"
       argument="${arguments[$i]}"
-
-      if [[ "$pattern" != "$argument" ]] && [[ "$pattern" != "*" ]] ; then
-        debug "$(printf "match failed at idx %d, expected '%q', got '%q'" $i "$pattern" "$argument")"
-        match_found=2
-        break
-      fi
+      case "$argument" in
+        $pattern ) ;;
+        "$pattern" ) ;;
+        * ) debug "$(printf "match failed at idx %d, expected '%q', got '%q'" $i "$pattern" "$argument")"
+            match_found=2
+            break ;;
+      esac
     done
 
     # Check if there are unmatched arguments

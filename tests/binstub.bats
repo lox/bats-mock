@@ -206,3 +206,18 @@ function teardown() {
   [ "$output" == "OK" ]
   unstub mycommand
 }
+
+@test "Allow partial matches" {
+  stub mycommand '/foo/bar/* : echo OK'
+  run mycommand "/foo/bar/myfile"
+  [ "$status" -eq 0 ]
+  [ "$output" == "OK" ]
+  unstub mycommand
+  # But reject others
+  stub mycommand '/foo/bar/* : echo OK'
+  run mycommand "/foo/baz/myfile"
+  [ "$status" -eq 1 ]
+  [ "$output" == "" ]
+  run unstub mycommand
+  [ "$status" -eq 1 ]
+}
