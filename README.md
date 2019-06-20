@@ -94,6 +94,30 @@ If you want to verify that your stub was passed the correct data in STDIN, you c
 }
 ```
 
+### Incremental Stubbing
+
+In some case it might be preferable to define the invocation plan incrementally to mirror the actual behavior of the program under test.
+This can be done by invocing `stub` multiple times with the same command.   
+In case you want to to start with a new plan call `unstub` first.
+
+```bash
+# Function to test
+function install() {
+  apt-get update
+  pt-add-repository -y myrepo
+  apt-get update
+}
+
+@test "test installation" {
+  stub apt-get "update : "
+  stub apt-add-repository "-y myrepo : "
+  stub apt-get "update : " # Appends to existing plan
+  run install
+  unstub apt-get # Verifies plan and removes all remaining files
+  stub apt-get "upgrade" # Start with a new plan
+}
+```
+
 ## Troubleshooting
 
 It can be difficult to figure out why your mock has failed. You can enable debugging by setting an environment variable (in this case for `date`):

@@ -15,7 +15,6 @@ stub() {
   mkdir -p "${BATS_MOCK_BINDIR}"
   ln -sf "${BASH_SOURCE[0]%stub.bash}binstub" "${BATS_MOCK_BINDIR}/${program}"
 
-  rm -f "${BATS_MOCK_TMPDIR}/${program}-stub-plan" "${BATS_MOCK_TMPDIR}/${program}-stub-run"
   touch "${BATS_MOCK_TMPDIR}/${program}-stub-plan"
   for arg in "$@"; do printf "%s\n" "$arg" >> "${BATS_MOCK_TMPDIR}/${program}-stub-plan"; done
 }

@@ -221,3 +221,15 @@ function teardown() {
   run unstub mycommand
   [ "$status" -eq 1 ]
 }
+
+@test "Allow incremental stubbing" {
+  stub mycommand "foo : echo OK"
+  stub mycommand "bar : echo 1K"
+  stub mycommand "baz : echo 2K"
+  run bash -c 'mycommand foo && mycommand bar && mycommand baz'
+  [ "$status" -eq 0 ]
+  expected='OK
+1K
+2K'
+  [ "$output" = "$expected" ]
+}
